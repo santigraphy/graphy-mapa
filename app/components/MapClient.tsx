@@ -13,11 +13,6 @@ const STAGE_COLORS: Record<string, string> = {
   Entregado: "bg-blue-500",
 };
 
-interface Props {
-  initialDeals: Deal[];
-}
-
-// Normalize for grouping
 function normProv(p: string) {
   const map: Record<string, string> = {
     "capital federal": "Ciudad Autónoma de Buenos Aires",
@@ -37,12 +32,12 @@ function normProv(p: string) {
   return map[p.toLowerCase().trim()] ?? p;
 }
 
-export default function MapClient({ initialDeals }: Props) {
-  const [deals, setDeals] = useState<Deal[]>(initialDeals);
+export default function MapClient() {
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const refresh = async () => {
+  const fetchDeals = async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/deals");
@@ -53,6 +48,10 @@ export default function MapClient({ initialDeals }: Props) {
     }
   };
 
+  useEffect(() => {
+    fetchDeals();
+  }, []);
+
   const byProvincia: Record<string, Deal[]> = {};
   for (const d of deals) {
     const norm = normProv(d.provincia);
@@ -62,7 +61,6 @@ export default function MapClient({ initialDeals }: Props) {
 
   const selectedDeals = selected ? byProvincia[selected] ?? [] : [];
 
-  // Stats
   const total = deals.length;
   const byStage: Record<string, number> = {};
   for (const d of deals) {
@@ -71,7 +69,6 @@ export default function MapClient({ initialDeals }: Props) {
 
   return (
     <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -82,15 +79,14 @@ export default function MapClient({ initialDeals }: Props) {
               Graphy — Mapa de Laboratorios
             </h1>
             <p className="text-xs text-gray-500">
-              {total} laboratorio{total !== 1 ? "s" : ""} en{" "}
-              {Object.keys(byProvincia).length} provincia
-              {Object.keys(byProvincia).length !== 1 ? "s" : ""}
+              {loading
+                ? "Cargando..."
+                : `${total} laboratorio${total !== 1 ? "s" : ""} en ${Object.keys(byProvincia).length} provincia${Object.keys(byProvincia).length !== 1 ? "s" : ""}`}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Legend */}
           <div className="hidden sm:flex items-center gap-3">
             {Object.entries(STAGE_COLORS).map(([stage, color]) => (
               <div key={stage} className="flex items-center gap-1.5">
@@ -103,16 +99,15 @@ export default function MapClient({ initialDeals }: Props) {
           </div>
 
           <button
-            onClick={refresh}
+            onClick={fetchDeals}
             disabled={loading}
             className="text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors disabled:opacity-50"
           >
-            {loading ? "Actualizando..." : "↻ Actualizar"}
+            {loading ? "Cargando..." : "↻ Actualizar"}
           </button>
         </div>
       </header>
 
-      {/* Map area */}
       <div className="flex-1 relative overflow-hidden">
         <ArgentinaMap
           deals={deals}
@@ -128,9 +123,8 @@ export default function MapClient({ initialDeals }: Props) {
           />
         )}
 
-        {/* Hint */}
-        {!selected && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-sm text-xs text-gray-500 px-3 py-1.5 rounded-full shadow border border-gray-100">
+        {!selected && !loading && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 backdrop-blur-sm text-xs text-gray-500 px-3 py-1.5 rounded-full shadow border border-gray-100 z-[1000]">
             Hacé click en un pin para ver los laboratorios
           </div>
         )}

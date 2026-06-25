@@ -174,13 +174,5 @@ export default function ArgentinaMap({ deals, onSelectProvincia, selectedProvinc
     });
   }
 
-  return (
-    <>
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      />
-      <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />
-    </>
-  );
+  return <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />;
 }
