@@ -1,5 +1,3 @@
-import type { Deal } from "../api/deals/route";
-
 const TOKEN = process.env.HUBSPOT_TOKEN;
 const BASE = "https://api.hubapi.com";
 
@@ -9,6 +7,15 @@ const STAGE_LABELS: Record<string, string> = {
   "1347872371": "Pagado",
   contractsent: "Entregado",
 };
+
+export interface Deal {
+  id: string;
+  name: string;
+  stage: string;
+  stageLabel: string;
+  provincia: string;
+  contact: { name: string; email: string; phone: string } | null;
+}
 
 async function fetchAllDeals(): Promise<Deal[]> {
   const deals: Deal[] = [];
@@ -64,6 +71,7 @@ async function enrichWithContacts(deals: Deal[]): Promise<Deal[]> {
   );
 
   const uniqueIds = [...new Set(assocResults.filter(Boolean))] as string[];
+  if (uniqueIds.length === 0) return deals;
 
   const contactData = await Promise.all(
     uniqueIds.map((cid) =>
@@ -89,7 +97,7 @@ async function enrichWithContacts(deals: Deal[]): Promise<Deal[]> {
 
   return deals.map((deal, i) => ({
     ...deal,
-    contact: assocResults[i] ? contactMap.get(assocResults[i]!) ?? null : null,
+    contact: assocResults[i] ? (contactMap.get(assocResults[i]!) ?? null) : null,
   }));
 }
 

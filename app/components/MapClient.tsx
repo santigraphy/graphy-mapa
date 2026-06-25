@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
-import type { Deal } from "../api/deals/route";
+import type { Deal } from "../lib/getDeals";
 import DealPanel from "./DealPanel";
 
 const ArgentinaMap = dynamic(() => import("./ArgentinaMap"), { ssr: false });

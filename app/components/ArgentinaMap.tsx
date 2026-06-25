@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Deal } from "../api/deals/route";
+import type { Deal } from "../lib/getDeals";
 
 const STAGE_COLORS: Record<string, string> = {
   Señado: "#f59e0b",

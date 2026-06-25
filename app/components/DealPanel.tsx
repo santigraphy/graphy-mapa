@@ -1,6 +1,6 @@
 "use client";
 
-import type { Deal } from "../api/deals/route";
+import type { Deal } from "../lib/getDeals";
 
 const STAGE_COLORS: Record<string, string> = {
   Señado: "bg-amber-100 text-amber-800",
