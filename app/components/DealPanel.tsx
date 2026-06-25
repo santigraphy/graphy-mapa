@@ -32,7 +32,7 @@ export default function DealPanel({ deals, provincia, onClose }: Props) {
         </button>
       </div>
 
-      <div className="overflow-y-auto max-h-[70vh] divide-y divide-gray-50">
+      <div className="overflow-y-auto max-h-[70vh] divide-y divide-gray-200">
         {deals.map((deal) => (
           <div key={deal.id} className="px-4 py-3">
             <div className="flex items-start justify-between gap-2 mb-1">
