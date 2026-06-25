@@ -3,7 +3,6 @@ import { NextResponse } from "next/server";
 const TOKEN = process.env.HUBSPOT_TOKEN;
 const BASE = "https://api.hubapi.com";
 
-// Stage IDs from Graphy Starter Kit pipeline
 const TARGET_STAGES = ["decisionmakerboughtin", "1347872371", "contractsent"];
 const STAGE_LABELS: Record<string, string> = {
   decisionmakerboughtin: "Señado",
@@ -65,44 +64,67 @@ async function getAllDeals(): Promise<Deal[]> {
   return deals;
 }
 
-async function getContactForDeal(dealId: string) {
-  const res = await fetch(
-    `${BASE}/crm/v3/objects/deals/${dealId}/associations/contacts`,
-    { headers: { Authorization: `Bearer ${TOKEN}` } }
+async function getContactsForDeals(dealIds: string[]) {
+  // Fetch all associations in parallel
+  const assocResults = await Promise.all(
+    dealIds.map((id) =>
+      fetch(`${BASE}/crm/v3/objects/deals/${id}/associations/contacts`, {
+        headers: { Authorization: `Bearer ${TOKEN}` },
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => d?.results?.[0]?.id ?? null)
+        .catch(() => null)
+    )
   );
-  if (!res.ok) return null;
-  const data = await res.json();
-  const contactId = data.results?.[0]?.id;
-  if (!contactId) return null;
 
-  const cRes = await fetch(
-    `${BASE}/crm/v3/objects/contacts/${contactId}?properties=firstname,lastname,email,phone`,
-    { headers: { Authorization: `Bearer ${TOKEN}` } }
+  // Collect unique contact IDs
+  const uniqueContactIds = [...new Set(assocResults.filter(Boolean))] as string[];
+
+  if (uniqueContactIds.length === 0) return new Map<string, any>();
+
+  // Fetch all contacts in parallel
+  const contactData = await Promise.all(
+    uniqueContactIds.map((cid) =>
+      fetch(
+        `${BASE}/crm/v3/objects/contacts/${cid}?properties=firstname,lastname,email,phone`,
+        { headers: { Authorization: `Bearer ${TOKEN}` } }
+      )
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+    )
   );
-  if (!cRes.ok) return null;
-  const c = await cRes.json();
-  const p = c.properties;
-  return {
-    name: [p.firstname, p.lastname].filter(Boolean).join(" ") || "Sin nombre",
-    email: p.email ?? "",
-    phone: p.phone ?? "",
-  };
+
+  // Build map: contactId -> contact info
+  const contactMap = new Map<string, any>();
+  for (const c of contactData) {
+    if (!c) continue;
+    const p = c.properties;
+    contactMap.set(c.id, {
+      name: [p.firstname, p.lastname].filter(Boolean).join(" ") || "Sin nombre",
+      email: p.email ?? "",
+      phone: p.phone ?? "",
+    });
+  }
+
+  // Build map: dealId -> contact info
+  const dealContactMap = new Map<string, any>();
+  dealIds.forEach((id, i) => {
+    const contactId = assocResults[i];
+    if (contactId && contactMap.has(contactId)) {
+      dealContactMap.set(id, contactMap.get(contactId));
+    }
+  });
+
+  return dealContactMap;
 }
 
 export async function GET() {
   try {
     const deals = await getAllDeals();
+    const contactMap = await getContactsForDeals(deals.map((d) => d.id));
 
-    // Fetch contacts in parallel (batches of 10)
-    const batchSize = 10;
-    for (let i = 0; i < deals.length; i += batchSize) {
-      const batch = deals.slice(i, i + batchSize);
-      const contacts = await Promise.all(
-        batch.map((d) => getContactForDeal(d.id))
-      );
-      contacts.forEach((c, j) => {
-        deals[i + j].contact = c;
-      });
+    for (const deal of deals) {
+      deal.contact = contactMap.get(deal.id) ?? null;
     }
 
     return NextResponse.json({ deals });

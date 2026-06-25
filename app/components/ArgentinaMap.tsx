@@ -9,8 +9,7 @@ import {
 } from "react-simple-maps";
 import type { Deal } from "../api/deals/route";
 
-const GEO_URL =
-  "https://raw.githubusercontent.com/deldersveld/topojson/master/countries/argentina/argentina-provinces.json";
+const GEO_URL = "/argentina.json";
 
 // Map from HubSpot provincia values to province names in the GeoJSON
 const PROVINCIA_NORM: Record<string, string> = {
