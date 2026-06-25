@@ -118,7 +118,7 @@ export default function ArgentinaMap({ deals, onSelectProvincia, selectedProvinc
         style={{ width: "100%", height: "100%" }}
       >
         <Geographies geography={GEO_URL} onError={() => setGeoReady(false)}>
-          {({ geographies }) =>
+          {({ geographies }: { geographies: any[] }) =>
             geographies.map((geo) => {
               const name = geo.properties.NAME_1 ?? geo.properties.name;
               const isSelected = selectedProvincia && normalizeProvincia(selectedProvincia) === name;
