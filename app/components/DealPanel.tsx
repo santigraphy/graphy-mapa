@@ -16,7 +16,7 @@ interface Props {
 
 export default function DealPanel({ deals, provincia, onClose }: Props) {
   return (
-    <div className="absolute top-4 right-4 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-10">
+    <div className="absolute top-4 right-4 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden" style={{ zIndex: 1000 }}>
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
         <div>
           <h2 className="font-semibold text-gray-800 text-sm">{provincia}</h2>
