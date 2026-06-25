@@ -9,7 +9,6 @@ const STAGE_COLORS: Record<string, string> = {
   Entregado: "#3b82f6",
 };
 
-// Normalize provincia names for grouping
 function normProv(p: string) {
   const map: Record<string, string> = {
     "capital federal": "Ciudad Autónoma de Buenos Aires",
@@ -29,7 +28,6 @@ function normProv(p: string) {
   return map[p.toLowerCase().trim()] ?? p;
 }
 
-// Centroids per province
 const PROVINCE_COORDS: Record<string, [number, number]> = {
   "Ciudad Autónoma de Buenos Aires": [-34.6, -58.4],
   "Buenos Aires": [-36.5, -60.5],
@@ -67,6 +65,12 @@ export default function ArgentinaMap({ deals, onSelectProvincia, selectedProvinc
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<any[]>([]);
+  const onSelectRef = useRef(onSelectProvincia);
+  const selectedRef = useRef(selectedProvincia);
+
+  // Keep refs current so markers always have fresh callbacks
+  useEffect(() => { onSelectRef.current = onSelectProvincia; }, [onSelectProvincia]);
+  useEffect(() => { selectedRef.current = selectedProvincia; }, [selectedProvincia]);
 
   // Group deals by province
   const byProvincia: Record<string, Deal[]> = {};
@@ -75,34 +79,30 @@ export default function ArgentinaMap({ deals, onSelectProvincia, selectedProvinc
     if (!byProvincia[norm]) byProvincia[norm] = [];
     byProvincia[norm].push(d);
   }
+  const byProvinciaRef = useRef(byProvincia);
+  byProvinciaRef.current = byProvincia;
 
   useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return;
-
-    // Avoid double init
     if (mapRef.current) return;
 
     import("leaflet").then((L) => {
-      // Fix default icon
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
-
       const map = L.map(mapContainerRef.current!, {
-        center: [-38, -65],
+        center: [-38, -63],
         zoom: 4,
+        minZoom: 4,
+        maxZoom: 10,
+        maxBounds: [[-58, -80], [-20, -50]],
+        maxBoundsViscosity: 1.0,
         zoomControl: true,
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
-        maxZoom: 10,
+        attribution: "© OpenStreetMap",
       }).addTo(map);
 
       mapRef.current = map;
+      renderMarkers(L, map);
     });
 
     return () => {
@@ -113,65 +113,49 @@ export default function ArgentinaMap({ deals, onSelectProvincia, selectedProvinc
     };
   }, []);
 
-  // Update markers when deals change
   useEffect(() => {
-    if (!mapRef.current) {
-      const interval = setInterval(() => {
-        if (mapRef.current) {
-          clearInterval(interval);
-          updateMarkers();
-        }
-      }, 200);
-      return () => clearInterval(interval);
-    }
-    updateMarkers();
+    if (!mapRef.current) return;
+    import("leaflet").then((L) => renderMarkers(L, mapRef.current));
   }, [deals, selectedProvincia]);
 
-  function updateMarkers() {
-    import("leaflet").then((L) => {
-      const map = mapRef.current;
-      if (!map) return;
+  function renderMarkers(L: any, map: any) {
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current = [];
 
-      // Remove old markers
-      markersRef.current.forEach((m) => m.remove());
-      markersRef.current = [];
+    for (const [prov, provDeals] of Object.entries(byProvinciaRef.current)) {
+      const coords = PROVINCE_COORDS[prov];
+      if (!coords) continue;
 
-      for (const [prov, provDeals] of Object.entries(byProvincia)) {
-        const coords = PROVINCE_COORDS[prov];
-        if (!coords) continue;
+      const isSelected = selectedRef.current === prov;
+      const count = provDeals.length;
+      const color = count === 1 ? (STAGE_COLORS[(provDeals[0] as Deal).stageLabel] ?? "#6366f1") : "#6366f1";
+      const size = isSelected ? 44 : count > 1 ? 38 : 32;
 
-        const isSelected = selectedProvincia === prov;
-        const count = provDeals.length;
-        const stageColor =
-          count === 1 ? STAGE_COLORS[provDeals[0].stageLabel] ?? "#6366f1" : "#6366f1";
-        const size = isSelected ? 44 : count > 1 ? 38 : 32;
+      const icon = L.divIcon({
+        html: `<div style="
+          width:${size}px;height:${size}px;
+          background:${color};
+          border:3px solid white;
+          border-radius:50%;
+          display:flex;align-items:center;justify-content:center;
+          font-size:13px;font-weight:bold;color:white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          cursor:pointer;
+        ">${count}</div>`,
+        className: "",
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+      });
 
-        const icon = L.divIcon({
-          html: `<div style="
-            width:${size}px;height:${size}px;
-            background:${stageColor};
-            border:3px solid white;
-            border-radius:50%;
-            display:flex;align-items:center;justify-content:center;
-            font-size:13px;font-weight:bold;color:white;
-            box-shadow:0 2px 8px rgba(0,0,0,0.3);
-            cursor:pointer;
-            transition:all 0.15s;
-          ">${count}</div>`,
-          className: "",
-          iconSize: [size, size],
-          iconAnchor: [size / 2, size / 2],
+      const marker = L.marker(coords, { icon })
+        .addTo(map)
+        .on("click", () => {
+          const currentSelected = selectedRef.current;
+          onSelectRef.current(currentSelected === prov ? null : prov);
         });
 
-        const marker = L.marker(coords, { icon })
-          .addTo(map)
-          .on("click", () => {
-            onSelectProvincia(isSelected ? null : prov);
-          });
-
-        markersRef.current.push(marker);
-      }
-    });
+      markersRef.current.push(marker);
+    }
   }
 
   return <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />;
